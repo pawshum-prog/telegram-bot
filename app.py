@@ -12,7 +12,7 @@ DIFY_API_KEY = 'app-oecgBMrh2zfX3b1GmkVnb4SV'
 DIFY_URL = 'https://api.dify.ai/v1/chat-messages'
 
 # Render даст вам URL после деплоя, пока ставим заглушку
-RENDER_URL = 'https://ваш-сервис.onrender.com'
+RENDER_URL = 'https://telegram-bot-om1g.onrender.com'
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
