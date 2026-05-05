@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 # Конфигурация
 TOKEN = '8382164433:AAEUA5dqWWqf1fZ-pZXY9hZtGWRlOo_kF0U'
-DIFY_API_KEY = 'app-oecgBMrh2zfX3b1GmkVnb4SV'
-DIFY_URL = 'https://api.dify.ai/v1/chat-messages'
+DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'
+DIFY_URL = 'https://api.dify.ai/v1/workflows/run'
 RENDER_URL = 'https://telegram-bot-om1g.onrender.com'
 
 # Хранилище conversation_id для каждого пользователя
