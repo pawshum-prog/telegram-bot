@@ -1,3 +1,4 @@
+import json
 import logging
 import requests
 from contextlib import asynccontextmanager
@@ -22,7 +23,6 @@ dp = Dispatcher()
 # Lifespan для управления вебхуком
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Удаляем старый вебхук и ставим новый
     await bot.delete_webhook(drop_pending_updates=True)
     webhook_url = f"{RENDER_URL}/webhook"
     await bot.set_webhook(url=webhook_url)
@@ -58,7 +58,7 @@ async def handle_message(message: types.Message):
     logger.info(f"💬 От пользователя: {message.text}")
     
     try:
-        # Отправляем запрос в Dify
+        # Отправляем запрос в Dify (streaming режим)
         res = requests.post(
             DIFY_URL,
             headers={
@@ -68,25 +68,37 @@ async def handle_message(message: types.Message):
             json={
                 "inputs": {},
                 "query": message.text,
-                "response_mode": "blocking",
+                "response_mode": "streaming",
                 "user": f"user_{message.from_user.id}"
             },
-            timeout=120  # Увеличили таймаут
+            timeout=120,
+            stream=True
         )
         
         logger.info(f"🤖 Dify ответил: {res.status_code}")
         
         if res.status_code == 200:
-            data = res.json()
-            answer = data.get("answer", "")
-            if answer:
-                await message.answer(answer)
+            # Собираем ответ из потока
+            full_answer = ""
+            for line in res.iter_lines():
+                if line:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data:'):
+                        try:
+                            data = json.loads(line_str[5:])
+                            if data.get("event") in ["message", "agent_message"]:
+                                full_answer += data.get("answer", "")
+                        except:
+                            continue
+            
+            if full_answer:
+                await message.answer(full_answer)
+                logger.info("✅ Ответ отправлен пользователю")
             else:
-                # Попробуем найти ключ 'text' или 'message'
-                alt_answer = data.get("text") or data.get("message") or str(data)
-                await message.answer(f"Ответ Dify: {alt_answer}")
+                await message.answer("Dify не вернул ответ")
+                logger.warning("⚠️ Пустой ответ от Dify")
         else:
-            logger.error(f"Dify Error: {res.status_code} - {res.text}")
+            logger.error(f"Dify Error: {res.text}")
             await message.answer(f"❌ Ошибка Dify API: {res.status_code}")
             
     except Exception as e:
