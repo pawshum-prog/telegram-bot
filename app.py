@@ -86,7 +86,7 @@ async def handle_message(message: types.Message):
                 alt_answer = data.get("text") or data.get("message") or str(data)
                 await message.answer(f"Ответ Dify: {alt_answer}")
         else:
-            logger.error(f"Dify Error: {res.text}")
+            logger.error(f"Dify Error: {res.status_code} - {res.text}")
             await message.answer(f"❌ Ошибка Dify API: {res.status_code}")
             
     except Exception as e:
