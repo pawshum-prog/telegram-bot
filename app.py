@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Конфигурация
 TOKEN = '8382164433:AAEUA5dqWWqf1fZ-pZXY9hZtGWRlOo_kF0U'
-DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'  # ← ЗАМЕНИТЕ на ключ от Workflow
+DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'  # ← ЗАМЕНИТЕ
 DIFY_URL = 'https://api.dify.ai/v1/workflows/run'
 RENDER_URL = 'https://telegram-bot-om1g.onrender.com'
 
@@ -65,39 +65,46 @@ async def handle_message(message: types.Message):
                 "response_mode": "streaming",
                 "user": f"user_{message.from_user.id}"
             },
-            timeout=180,  # ← УВЕЛИЧЕНО до 3 минут
+            timeout=180,
             stream=True
         )
         
         logger.info(f"🤖 Workflow ответил: {res.status_code}")
         
         if res.status_code == 200:
-    full_answer = ""
-    raw_data = []
-    for line in res.iter_lines():
-        if line:
-            line_str = line.decode('utf-8')
-            raw_data.append(line_str)
-            if line_str.startswith('data:'):
+            raw_text = res.text
+            logger.info(f"RAW FULL: {raw_text[:500]}")
+            
+            full_answer = ""
+            
+            for line in raw_text.split('\n'):
+                if line.startswith('data:'):
+                    try:
+                        data = json.loads(line[5:])
+                        if "outputs" in data and "text" in data["outputs"]:
+                            full_answer = data["outputs"]["text"]
+                        elif "answer" in data:
+                            full_answer += str(data.get("answer", ""))
+                    except:
+                        continue
+            
+            if not full_answer:
                 try:
-                    data = json.loads(line_str[5:])
-                    if "outputs" in data and "text" in data["outputs"]:
-                        full_answer = data["outputs"]["text"]
-                    elif "answer" in data:
-                        full_answer += str(data.get("answer", ""))
-                    elif "data" in data and "outputs" in data["data"]:
-                        full_answer = data["data"]["outputs"].get("text", "")
+                    json_data = res.json()
+                    logger.info(f"JSON: {json_data}")
+                    if "data" in json_data:
+                        full_answer = json_data["data"].get("outputs", {}).get("text", "")
+                    elif "outputs" in json_data:
+                        full_answer = json_data["outputs"].get("text", "")
                 except:
-                    continue
-    
-    logger.info(f"RAW: {raw_data[-3:] if len(raw_data) > 3 else raw_data}")
-    
-    if full_answer:
-        await message.answer(full_answer)
-        logger.info("✅ Ответ отправлен")
-    else:
-        await message.answer("Workflow не вернул ответ")
-        logger.warning(f"⚠️ Пустой ответ. RAW: {raw_data}")
+                    pass
+            
+            if full_answer:
+                await message.answer(full_answer)
+                logger.info("✅ Ответ отправлен")
+            else:
+                await message.answer("Workflow не вернул ответ")
+                logger.warning("⚠️ Не смогли извлечь ответ")
         else:
             logger.error(f"Workflow Error: {res.text}")
             await message.answer(f"❌ Ошибка Workflow API: {res.status_code}")
