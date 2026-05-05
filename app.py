@@ -2,9 +2,6 @@ import asyncio
 import requests
 import logging
 from aiogram import Bot, Dispatcher, types
-from aiogram.client.session.aiohttp import AiohttpSession
-from aiohttp_socks import ProxyConnector
-import sys
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,13 +9,7 @@ TOKEN = '8382164433:AAEUA5dqWWqf1fZ-pZXY9hZtGWRlOo_kF0U'
 DIFY_API_KEY = 'app-oecgBMrh2zfX3b1GmkVnb4SV'
 DIFY_URL = 'https://api.dify.ai/v1/chat-messages'
 
-# Используем SOCKS5 прокси для Telegram API
-PROXY_URL = 'socks5://95.164.17.24:13058'
-
-# Сессия с SOCKS5 прокси
-connector = ProxyConnector.from_url(PROXY_URL)
-session = AiohttpSession(connector=connector)
-bot = Bot(token=TOKEN, session=session)
+bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 @dp.message()
