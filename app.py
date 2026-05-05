@@ -13,12 +13,9 @@ logger = logging.getLogger(__name__)
 
 # Конфигурация
 TOKEN = '8382164433:AAEUA5dqWWqf1fZ-pZXY9hZtGWRlOo_kF0U'
-DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'
+DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'  # ← ЗАМЕНИТЕ на ключ от Workflow
 DIFY_URL = 'https://api.dify.ai/v1/workflows/run'
 RENDER_URL = 'https://telegram-bot-om1g.onrender.com'
-
-# Хранилище conversation_id для каждого пользователя
-user_conversations = {}
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -54,11 +51,7 @@ async def handle_message(message: types.Message):
     if not message.text:
         return
     
-    user_id = message.from_user.id
-    logger.info(f"💬 От пользователя {user_id}: {message.text}")
-    
-    # Получаем conversation_id для пользователя (или "" для нового диалога)
-    conversation_id = user_conversations.get(user_id, "")
+    logger.info(f"💬 От пользователя: {message.text}")
     
     try:
         res = requests.post(
@@ -68,17 +61,15 @@ async def handle_message(message: types.Message):
                 "Content-Type": "application/json"
             },
             json={
-                "inputs": {},
-                "query": message.text,
+                "inputs": {"query": message.text},
                 "response_mode": "streaming",
-                "conversation_id": conversation_id,  # ← передаём ID диалога
-                "user": f"user_{user_id}"
+                "user": f"user_{message.from_user.id}"
             },
-            timeout=120,
+            timeout=180,  # ← УВЕЛИЧЕНО до 3 минут
             stream=True
         )
         
-        logger.info(f"🤖 Dify ответил: {res.status_code}")
+        logger.info(f"🤖 Workflow ответил: {res.status_code}")
         
         if res.status_code == 200:
             full_answer = ""
@@ -88,26 +79,28 @@ async def handle_message(message: types.Message):
                     if line_str.startswith('data:'):
                         try:
                             data = json.loads(line_str[5:])
-                            if data.get("event") in ["message", "agent_message"]:
-                                full_answer += data.get("answer", "")
-                            # Сохраняем conversation_id из ответа
-                            if "conversation_id" in data:
-                                user_conversations[user_id] = data["conversation_id"]
+                            # Workflow отдаёт ответ в data.outputs.text
+                            if "outputs" in data and "text" in data["outputs"]:
+                                full_answer = data["outputs"]["text"]
                         except:
                             continue
             
             if full_answer:
                 await message.answer(full_answer)
-                logger.info(f"✅ Ответ отправлен (conv_id: {user_conversations.get(user_id, 'нет')})")
+                logger.info("✅ Ответ отправлен")
             else:
-                await message.answer("Dify не вернул ответ")
+                await message.answer("Workflow не вернул ответ")
+                logger.warning("⚠️ Пустой ответ")
         else:
-            logger.error(f"Dify Error: {res.text}")
-            await message.answer(f"❌ Ошибка Dify API: {res.status_code}")
+            logger.error(f"Workflow Error: {res.text}")
+            await message.answer(f"❌ Ошибка Workflow API: {res.status_code}")
             
+    except requests.exceptions.ReadTimeout:
+        logger.error("🔥 Таймаут при ожидании ответа от Dify")
+        await message.answer("🔄 Сервис выполняется слишком долго. Попробуйте уточнить запрос или повторите позже.")
     except Exception as e:
         logger.error(f"🔥 Критическая ошибка: {e}")
-        await message.answer("🔄 Сервис временно недоступен")
+        await message.answer("🔄 Сервис временно недоступен, попробуйте позже.")
 
 if __name__ == "__main__":
     logger.info("🚀 Запуск сервера...")
