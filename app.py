@@ -72,25 +72,32 @@ async def handle_message(message: types.Message):
         logger.info(f"🤖 Workflow ответил: {res.status_code}")
         
         if res.status_code == 200:
-            full_answer = ""
-            for line in res.iter_lines():
-                if line:
-                    line_str = line.decode('utf-8')
-                    if line_str.startswith('data:'):
-                        try:
-                            data = json.loads(line_str[5:])
-                            # Workflow отдаёт ответ в data.outputs.text
-                            if "outputs" in data and "text" in data["outputs"]:
-                                full_answer = data["outputs"]["text"]
-                        except:
-                            continue
-            
-            if full_answer:
-                await message.answer(full_answer)
-                logger.info("✅ Ответ отправлен")
-            else:
-                await message.answer("Workflow не вернул ответ")
-                logger.warning("⚠️ Пустой ответ")
+    full_answer = ""
+    raw_data = []
+    for line in res.iter_lines():
+        if line:
+            line_str = line.decode('utf-8')
+            raw_data.append(line_str)
+            if line_str.startswith('data:'):
+                try:
+                    data = json.loads(line_str[5:])
+                    if "outputs" in data and "text" in data["outputs"]:
+                        full_answer = data["outputs"]["text"]
+                    elif "answer" in data:
+                        full_answer += str(data.get("answer", ""))
+                    elif "data" in data and "outputs" in data["data"]:
+                        full_answer = data["data"]["outputs"].get("text", "")
+                except:
+                    continue
+    
+    logger.info(f"RAW: {raw_data[-3:] if len(raw_data) > 3 else raw_data}")
+    
+    if full_answer:
+        await message.answer(full_answer)
+        logger.info("✅ Ответ отправлен")
+    else:
+        await message.answer("Workflow не вернул ответ")
+        logger.warning(f"⚠️ Пустой ответ. RAW: {raw_data}")
         else:
             logger.error(f"Workflow Error: {res.text}")
             await message.answer(f"❌ Ошибка Workflow API: {res.status_code}")
