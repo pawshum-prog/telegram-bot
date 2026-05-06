@@ -6,6 +6,7 @@ import uvicorn
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Update
 from fastapi import FastAPI, Request
+# Version: 2.0 - Workflow parsing fixed
 
 # Настройка логов
 logging.basicConfig(level=logging.INFO)
