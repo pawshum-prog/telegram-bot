@@ -72,32 +72,23 @@ async def handle_message(message: types.Message):
         logger.info(f"🤖 Workflow ответил: {res.status_code}")
         
         if res.status_code == 200:
-            raw_text = res.text
-            logger.info(f"RAW FULL: {raw_text[:500]}")
-            
             full_answer = ""
             
-            for line in raw_text.split('\n'):
-                if line.startswith('data:'):
-                    try:
-                        data = json.loads(line[5:])
-                        if "outputs" in data and "text" in data["outputs"]:
-                            full_answer = data["outputs"]["text"]
-                        elif "answer" in data:
-                            full_answer += str(data.get("answer", ""))
-                    except:
-                        continue
-            
-            if not full_answer:
-                try:
-                    json_data = res.json()
-                    logger.info(f"JSON: {json_data}")
-                    if "data" in json_data:
-                        full_answer = json_data["data"].get("outputs", {}).get("text", "")
-                    elif "outputs" in json_data:
-                        full_answer = json_data["outputs"].get("text", "")
-                except:
-                    pass
+            for line in res.iter_lines():
+                if line:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data:'):
+                        try:
+                            data = json.loads(line_str[5:])
+                            event = data.get("event", "")
+                            
+                            if event == "workflow_finished":
+                                if "data" in data and "outputs" in data["data"]:
+                                    full_answer = data["data"]["outputs"].get("text", "")
+                            elif event in ["message", "agent_message", "text_chunk"]:
+                                full_answer += data.get("answer", "")
+                        except:
+                            continue
             
             if full_answer:
                 await message.answer(full_answer)
