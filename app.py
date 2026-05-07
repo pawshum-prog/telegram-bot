@@ -92,7 +92,14 @@ async def handle_message(message: types.Message):
                             continue
             
             if full_answer:
-                await message.answer(full_answer)
+    # Telegram ограничение — 4096 символов на сообщение
+    if len(full_answer) > 4000:
+        # Разбиваем на части
+        for i in range(0, len(full_answer), 4000):
+            chunk = full_answer[i:i+4000]
+            await message.answer(chunk)
+    else:
+        await message.answer(full_answer)
                 logger.info("✅ Ответ отправлен")
             else:
                 await message.answer("Workflow не вернул ответ")
