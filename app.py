@@ -6,15 +6,12 @@ import uvicorn
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import Update
 from fastapi import FastAPI, Request
-# Version: 2.0 - Workflow parsing fixed
 
-# Настройка логов
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Конфигурация
 TOKEN = '8382164433:AAEUA5dqWWqf1fZ-pZXY9hZtGWRlOo_kF0U'
-DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'  # ← ЗАМЕНИТЕ
+DIFY_API_KEY = 'app-0ByvHoyrt2GYUvHXJ89N1YsV'
 DIFY_URL = 'https://api.dify.ai/v1/workflows/run'
 RENDER_URL = 'https://telegram-bot-om1g.onrender.com'
 
@@ -74,10 +71,12 @@ async def handle_message(message: types.Message):
         
         if res.status_code == 200:
             full_answer = ""
+            raw_lines = []
             
             for line in res.iter_lines():
                 if line:
                     line_str = line.decode('utf-8')
+                    raw_lines.append(line_str)
                     if line_str.startswith('data:'):
                         try:
                             data = json.loads(line_str[5:])
@@ -91,8 +90,10 @@ async def handle_message(message: types.Message):
                         except:
                             continue
             
+            # Логируем для диагностики
+            logger.info(f"RAW: {raw_lines[-3:] if len(raw_lines) > 3 else raw_lines}")
+            
             if full_answer:
-                # Telegram ограничение 4096 символов
                 if len(full_answer) > 4000:
                     for i in range(0, len(full_answer), 4000):
                         chunk = full_answer[i:i+4000]
@@ -108,11 +109,11 @@ async def handle_message(message: types.Message):
             await message.answer(f"❌ Ошибка Workflow API: {res.status_code}")
             
     except requests.exceptions.ReadTimeout:
-        logger.error("🔥 Таймаут при ожидании ответа от Dify")
-        await message.answer("🔄 Сервис выполняется слишком долго. Попробуйте уточнить запрос или повторите позже.")
+        logger.error("🔥 Таймаут")
+        await message.answer("🔄 Сервис выполняется долго, попробуйте позже.")
     except Exception as e:
         logger.error(f"🔥 Критическая ошибка: {e}")
-        await message.answer("🔄 Сервис временно недоступен, попробуйте позже.")
+        await message.answer("🔄 Сервис временно недоступен.")
 
 if __name__ == "__main__":
     logger.info("🚀 Запуск сервера...")
