@@ -93,14 +93,28 @@ async def handle_message(message: types.Message):
             # Логируем для диагностики
             logger.info(f"RAW: {raw_lines[-3:] if len(raw_lines) > 3 else raw_lines}")
             
-            if full_answer:
-                if len(full_answer) > 4000:
-                    for i in range(0, len(full_answer), 4000):
-                        chunk = full_answer[i:i+4000]
-                        await message.answer(chunk)
-                else:
-                    await message.answer(full_answer)
-                logger.info("✅ Ответ отправлен")
+             if full_answer:
+            if len(full_answer) > 4000:
+                # Разбиваем на части по 4000 символов, но только по целым строкам
+                chunks = []
+                current_chunk = ""
+                for line in full_answer.split('\n'):
+                    if len(current_chunk) + len(line) + 1 > 4000:
+                        chunks.append(current_chunk)
+                        current_chunk = line
+                    else:
+                        if current_chunk:
+                            current_chunk += '\n' + line
+                        else:
+                            current_chunk = line
+                if current_chunk:
+                    chunks.append(current_chunk)
+                
+                for chunk in chunks:
+                    await message.answer(chunk)
+            else:
+                await message.answer(full_answer)
+            logger.info("✅ Ответ отправлен")
             else:
                 await message.answer("Workflow не вернул ответ")
                 logger.warning("⚠️ Не смогли извлечь ответ")
